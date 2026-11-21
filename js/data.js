@@ -408,7 +408,7 @@
         return { cls, students };
       },
       async aiDraft(kind, input) {
-        if (!cfg.MAKE_AI_DRAFT_WEBHOOK) err("AI drafting is not configured yet. Ask YomieVerse to connect the AI draft scenario (S8).");
+        if (!cfg.MAKE_AI_DRAFT_WEBHOOK) err("AI drafting is not configured yet. Ask Naomi Mwangi to connect the AI draft scenario (S8).");
         const { data } = await sb.auth.getSession();
         const res = await fetch(cfg.MAKE_AI_DRAFT_WEBHOOK, { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ kind, school_id: ctx.school_id, input, access_token: data.session.access_token }) });

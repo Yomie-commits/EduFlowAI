@@ -58,7 +58,7 @@
         }
       },
       "fallback": null,
-      "notes": "approved_facts comes from a per-school 'facts' list kept in schools.settings.approved_facts (term dates, open day, fee structure summary, transport areas). Staff maintain it in Settings in Phase 5; for the pilot YomieVerse keeps it in the Make scenario's data store."
+      "notes": "approved_facts comes from a per-school 'facts' list kept in schools.settings.approved_facts (term dates, open day, fee structure summary, transport areas). Staff maintain it in Settings in Phase 5; for the pilot Naomi Mwangi keeps it in the Make scenario's data store."
     },
     {
       "key": "announcement_drafter",

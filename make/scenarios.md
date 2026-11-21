@@ -30,7 +30,7 @@ All scenarios live in one Make team folder, **EduFlow AI**. Supabase is the syst
 | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | Project URL + **service_role** key | Make → Keys / a custom "Supabase EduFlow" HTTP connection. Never in the website. |
 | `ANTHROPIC_API_KEY` | Claude API key | Make keychain (HTTP "API key" auth) |
 | `AT_USERNAME`, `AT_API_KEY`, `AT_SENDER_ID` | Africa's Talking SMS | Make keychain |
-| Gmail connection | The school's or YomieVerse's Google Workspace mailbox | Make Gmail app |
+| Gmail connection | The school's or Naomi Mwangi's Google Workspace mailbox | Make Gmail app |
 | `WEBHOOK_SECRET` | Random 32-character string | Sent by Supabase as header `x-eduflow-secret`; first filter in every webhook scenario checks it |
 | `AI_MODEL` | Current Claude Sonnet model id | Make scenario variable (one place to update) |
 | Sub-scenario **LOG** | Writes one row to `automation_logs` | Called at the end of every scenario and from every error handler |
@@ -136,12 +136,12 @@ All scenarios live in one Make team folder, **EduFlow AI**. Supabase is the syst
 | **Note** | The response is only shown in the editor. It reaches a parent only after the staff member saves it as a draft and it is approved. |
 
 ## S9 — Health sweep
-Hourly: re-queue `communication_logs` stuck in `queued` > 15 min or `failed` with `attempt_count < 3`; find enquiries with `category='unclassified'` older than 10 min and re-run S1's classification; alert YomieVerse (email) if any scenario logged `failed` 3+ times in 24 h.
+Hourly: re-queue `communication_logs` stuck in `queued` > 15 min or `failed` with `attempt_count < 3`; find enquiries with `category='unclassified'` older than 10 min and re-run S1's classification; alert Naomi Mwangi (email) if any scenario logged `failed` 3+ times in 24 h.
 
 ---
 
 ## Go-live checklist for Make
-1. Create the 4 keychain entries and the Gmail connection (use the school's or YomieVerse's Workspace account).
+1. Create the 4 keychain entries and the Gmail connection (use the school's or Naomi Mwangi's Workspace account).
 2. Build **LOG** first, then S0, S1, S3, S6, S8 (MVP). S2, S5, S7, S9 next; S4 in Phase 5.
 3. In Supabase → Database → Webhooks create hooks for: `admissions_enquiries` INSERT → S1; `applications` INSERT/UPDATE → S2; `communication_logs` INSERT/UPDATE → S0; `payment_reminders` UPDATE → S0b.
 4. Run each scenario's test list against the **demo school** before connecting a real school.

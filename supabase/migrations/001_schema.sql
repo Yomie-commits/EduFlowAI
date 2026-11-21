@@ -1,6 +1,6 @@
 -- =====================================================================
 -- EduFlow AI  |  Migration 001: core schema
--- A YomieVerse product. Multi-tenant: every school-owned row carries
+-- A product by Naomi Mwangi. Multi-tenant: every school-owned row carries
 -- school_id, and Row Level Security (migration 002) enforces isolation.
 -- Run in the Supabase SQL editor, in order: 001, 002, 003, then seed.sql
 -- =====================================================================
@@ -86,7 +86,7 @@ create table public.user_profiles (
   full_name       text,
   email           text,
   phone           text,
-  is_super_admin  boolean not null default false,  -- YomieVerse platform staff only
+  is_super_admin  boolean not null default false,  -- platform operator (Naomi Mwangi) only
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
@@ -593,7 +593,7 @@ create trigger on_auth_user_created
 -- Reference data: roles and permissions
 -- ---------------------------------------------------------------------
 insert into public.roles (key, name, description, is_staff) values
-  ('super_admin',        'Super Administrator',  'YomieVerse platform staff. Set on user_profiles.is_super_admin, never per school.', true),
+  ('super_admin',        'Super Administrator',  'Platform operator (Naomi Mwangi). Set on user_profiles.is_super_admin, never per school.', true),
   ('school_admin',       'School Administrator', 'Runs school operations, admissions, communication and settings.', true),
   ('head_teacher',       'Headteacher / Principal', 'Reviews summaries and reports; can make admission decisions.', true),
   ('bursar',             'Bursar / Accountant',  'Manages fee records, payments and reminders.', true),

@@ -83,7 +83,7 @@
   }
 
   function renderLogin() {
-    const brand = `<a class="brand-mark mb-4" href="index.html"><span class="dot"><i class="bi bi-mortarboard-fill"></i></span><span>EduFlow AI<small>by YomieVerse</small></span></a>`;
+    const brand = `<a class="brand-mark mb-4" href="index.html"><span class="dot"><i class="bi bi-mortarboard-fill"></i></span><span>EduFlow AI<small>by Naomi Mwangi</small></span></a>`;
     if (api.mode === "demo") {
       const roles = [
         ["school_admin", "School Administrator", "Wanjiru Kamau", "Everything: admissions, approvals, settings"],

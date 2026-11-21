@@ -14,5 +14,5 @@ window.EDUFLOW_CONFIG = {
   // Default school for the public forms when ?school= is not in the link
   DEFAULT_SCHOOL_SLUG: "mwangaza-junior",
 
-  BRAND: { product: "EduFlow AI", parent: "YomieVerse", whatsapp: "+254792002230", email: "mwanginaomi42@gmail.com" }
+  BRAND: { product: "EduFlow AI", parent: "Naomi Mwangi", whatsapp: "+254792002230", email: "mwanginaomi42@gmail.com" }
 };

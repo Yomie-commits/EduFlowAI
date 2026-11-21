@@ -1,6 +1,6 @@
 # EduFlow AI
 
-**Smarter School Operations. Better School Experiences.** A YomieVerse product.
+**Smarter School Operations. Better School Experiences.** A product by Naomi Mwangi.
 
 EduFlow AI automates the front office of Kenyan private schools: admissions enquiries, applications and documents, parent communication and fee reminders. It runs alongside the school's existing management system rather than replacing it. AI sorts, summarises and drafts; staff approve everything, and the database enforces that.
 
@@ -34,7 +34,7 @@ Already done for the demo: Supabase project **eduflow-demo** (`https://ncgszlwaw
 5. Authentication → URL configuration → add your site URL (for example `https://yomie-commits.github.io/EduFlowAI/`).
 6. Commit and push to `main`. GitHub Pages (Settings → Pages → Deploy from branch `main`, folder `/ (root)`) republishes the site on every push.
 
-For a real school: insert one row in `schools`, invite staff through Supabase Auth, and add `school_memberships` rows with their roles. A super admin (YomieVerse) is a `user_profiles` row with `is_super_admin = true`, set in the SQL editor only.
+For a real school: insert one row in `schools`, invite staff through Supabase Auth, and add `school_memberships` rows with their roles. A super admin (Naomi Mwangi, the platform operator) is a `user_profiles` row with `is_super_admin = true`, set in the SQL editor only.
 
 ## 3. Turn on automations
 The two MVP scenarios already exist in Make (folder **EduFlow AI**): *Live events* (S1 enquiries + S0 sending) and *Daily 06:45* (S6 briefing + S3 Monday reminders). Their blueprints are in `make/blueprints/`; `make/scenarios.md` explains how they work and lists the scenarios still to build.
