@@ -1,0 +1,119 @@
+{
+ "name": "EduFlow AI \u00b7 Daily 06:45 (briefing + Monday fee reminders)",
+ "metadata": {
+  "instant": false,
+  "version": 1,
+  "scenario": {
+   "dlq": false,
+   "dataloss": false,
+   "maxErrors": 3,
+   "autoCommit": true,
+   "roundtrips": 1,
+   "sequential": true,
+   "confidential": true
+  }
+ },
+ "flow": [
+  {
+   "id": 1,
+   "module": "http:MakeRequest",
+   "version": 4,
+   "parameters": {
+    "authenticationType": "noAuth"
+   },
+   "mapper": {
+    "url": "https://ncgszlwawiagennffkjw.supabase.co/rest/v1/rpc/automation_daily_run",
+    "method": "post",
+    "contentType": "json",
+    "inputMethod": "jsonString",
+    "jsonStringBodyContent": "{\"p_force_reminders\":false}",
+    "parseResponse": true,
+    "stopOnHttpError": true,
+    "allowRedirects": true,
+    "shareCookies": false,
+    "requestCompressedContent": true
+   },
+   "metadata": {
+    "designer": {
+     "x": 0,
+     "y": 0
+    }
+   }
+  },
+  {
+   "id": 2,
+   "module": "builtin:BasicFeeder",
+   "version": 1,
+   "mapper": {
+    "array": "{{1.data.items}}"
+   },
+   "metadata": {
+    "designer": {
+     "x": 300,
+     "y": 0
+    }
+   }
+  },
+  {
+   "id": 3,
+   "module": "google-email:sendAnEmail",
+   "version": 4,
+   "parameters": {
+    "__IMTCONN__": 13106432
+   },
+   "mapper": {
+    "to": [
+     "{{2.to}}"
+    ],
+    "subject": "{{2.subject}}",
+    "bodyType": "rawHtml",
+    "content": "{{2.html}}"
+   },
+   "onerror": [
+    {
+     "id": 4,
+     "module": "http:MakeRequest",
+     "version": 4,
+     "parameters": {
+      "authenticationType": "noAuth"
+     },
+     "mapper": {
+      "url": "https://ncgszlwawiagennffkjw.supabase.co/rest/v1/rpc/automation_log",
+      "method": "post",
+      "contentType": "json",
+      "inputMethod": "jsonString",
+      "jsonStringBodyContent": "{\"p_scenario\":\"S6_daily_briefing\",\"p_status\":\"failed\",\"p_message\":\"Gmail could not send the morning briefing\"}",
+      "parseResponse": true,
+      "stopOnHttpError": true,
+      "allowRedirects": true,
+      "shareCookies": false,
+      "requestCompressedContent": true
+     },
+     "metadata": {
+      "designer": {
+       "x": 600,
+       "y": 250
+      }
+     }
+    },
+    {
+     "id": 5,
+     "module": "builtin:Ignore",
+     "version": 1,
+     "metadata": {
+      "designer": {
+       "x": 900,
+       "y": 250
+      }
+     }
+    }
+   ],
+   "metadata": {
+    "designer": {
+     "x": 600,
+     "y": 0
+    }
+   }
+  }
+ ]
+}
