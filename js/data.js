@@ -13,6 +13,7 @@
   const ref = (p) => `${p}-${String(now().getFullYear()).slice(2)}-${String(++refSeq).padStart(5, "0")}`;
   const DECISIONS = ["offered", "waitlisted", "declined", "enrolled"];
   const ROLE_GROUPS = {
+    admin: ["school_admin"],
     admissions: ["school_admin", "head_teacher", "admissions_officer"],
     finance: ["school_admin", "head_teacher", "bursar"],
     fin_write: ["school_admin", "bursar"],
@@ -24,6 +25,8 @@
 
   // ================================================================== SUPABASE
   function SupabaseAdapter() {
+    // An invite or password-reset email link lands here with tokens in the URL hash
+    const needsPassword = /type=(invite|recovery|signup)/.test(location.hash);
     const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
     let ctx = { school_id: null, role: null };
     const q = async (p) => { const { data, error } = await p; if (error) { error.userMessage = error.message; throw error; } return data; };
@@ -34,6 +37,15 @@
       async getSession() { const { data } = await sb.auth.getSession(); return data.session ? { user: { email: data.session.user.email } } : null; },
       async signIn(email, password) { await q(sb.auth.signInWithPassword({ email, password })); return this.getSession(); },
       async signOut() { await sb.auth.signOut(); },
+      needsPassword,
+      async setPassword(pw) { await q(sb.auth.updateUser({ password: pw })); },
+      async sendPasswordReset(email) { await q(sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname })); },
+      async myProfile() { return q(sb.rpc("my_profile")); },
+      async listAllSchools() { return q(sb.from("schools").select("id, name, slug, status, school_type, county, created_at").order("name")); },
+      async createSchool(o) { return q(sb.from("schools").insert(o).select().single()); },
+      async listMembers() { return q(sb.rpc("school_members", { p_school: ctx.school_id })); },
+      async addMember(email, role, name) { return q(sb.rpc("admin_add_member", { p_school: ctx.school_id, p_email: email, p_role: role, p_full_name: name || null })); },
+      async removeMember(membershipId) { return q(sb.from("school_memberships").delete().eq("id", membershipId)); },
       async myMemberships() {
         const rows = await q(sb.from("school_memberships").select("school_id, role_key, status, schools(name, slug)").eq("status", "active"));
         return rows.map((r) => ({ school_id: r.school_id, role_key: r.role_key, school_name: r.schools && r.schools.name, school_slug: r.schools && r.schools.slug }));

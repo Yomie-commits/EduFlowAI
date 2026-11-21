@@ -65,21 +65,41 @@
     { id: "reminders",     icon: "bell",             text: "Fee reminders", group: "finance", countKey: "reminders" },
     { id: "myclass",       icon: "people",           text: "My class",      roles: ["teacher"] },
     { id: "tasks",         icon: "list-check",       text: "Tasks",         roles: "*" },
-    { id: "school-settings",      icon: "gear",             text: "School settings", group: "leaders" }
+    { id: "school-settings",      icon: "gear",             text: "School settings", group: "leaders" },
+    { id: "staff",         icon: "person-badge",     text: "Staff & roles", group: "admin" },
+    { id: "platform",      icon: "buildings",        text: "Platform setup", operator: true }
   ];
-  const allowed = (n) => n.roles === "*" || (n.roles && n.roles.includes(role())) || (n.group && can(role(), n.group));
+  const isOperator = () => !!(state.profile && state.profile.is_super_admin);
+  const allowed = (n) => {
+    if (n.operator) return isOperator();
+    if (!state.membership) return false;
+    return n.roles === "*" || (n.roles && n.roles.includes(role())) || (n.group && can(role(), n.group));
+  };
+  const SCHOOL_KEY = "ef_school";
+  // Re-open the app on a given page after the school changes, without a racing hashchange
+  const reopen = (view) => { window.onhashchange = null; history.replaceState(null, "", "#" + view); boot().catch(fail); };
+  const remember = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} };
+  const recall = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 
   // ---------------------------------------------------------------- shells
   async function boot() {
     if (!api) { root.innerHTML = `<div class="container py-5" style="max-width:520px"><div class="empty"><div class="icon"><i class="bi bi-plug"></i></div><div>EduFlow AI is not connected to its database. Check js/config.js.</div></div></div>`; return; }
     state.session = await api.getSession();
     if (!state.session) return renderLogin();
-    const ms = await api.myMemberships();
-    if (!ms.length) return renderNoAccess();
-    state.membership = ms[0];
-    state.school_slug = ms[0].school_slug;
-    if (api.setContext) api.setContext({ school_id: state.membership.school_id, role: state.membership.role_key });
+    if (api.needsPassword && !state.passwordSet) return renderSetPassword();
+    state.profile = await api.myProfile().catch(() => null);
+    let ms = await api.myMemberships();
+    if (isOperator()) {
+      // The platform operator can open every school as its administrator
+      const schools = await api.listAllSchools();
+      schools.forEach((sc) => { if (!ms.some((m) => m.school_id === sc.id))
+        ms.push({ school_id: sc.id, school_name: sc.name, school_slug: sc.slug, role_key: "school_admin", operator: true }); });
+    }
     state.memberships = ms;
+    if (!ms.length && !isOperator()) return renderNoAccess();
+    state.membership = ms.find((m) => m.school_id === recall(SCHOOL_KEY)) || ms[0] || null;
+    state.school_slug = state.membership && state.membership.school_slug;
+    if (state.membership) api.setContext({ school_id: state.membership.school_id, role: state.membership.role_key });
     renderShell();
   }
 
@@ -90,10 +110,31 @@
       <form id="loginForm"><div class="mb-3"><label class="form-label">Email</label><input class="form-control" type="email" name="email" required autocomplete="username"></div>
       <div class="mb-3"><label class="form-label">Password</label><input class="form-control" type="password" name="password" required autocomplete="current-password"></div>
       <button class="btn btn-primary w-100" type="submit">Sign in</button></form>
-      <p class="small text-soft mt-3 mb-0">Accounts are created by your school administrator.</p></div></div>`;
+      <button class="btn btn-link btn-sm px-0 mt-2" id="forgot" type="button">Forgot your password?</button>
+      <p class="small text-soft mt-2 mb-0">Accounts are created by your school administrator.</p></div></div>`;
     document.getElementById("loginForm").onsubmit = async (ev) => {
       ev.preventDefault(); const f = new FormData(ev.target);
       try { await api.signIn(f.get("email"), f.get("password")); boot(); } catch (e) { fail(e); }
+    };
+    document.getElementById("forgot").onclick = async () => {
+      const email = document.querySelector("#loginForm [name=email]").value.trim();
+      if (!email) return toast("Type your email address first", "error");
+      try { await api.sendPasswordReset(email); toast("If that address has an account, a reset link is on its way.", "info"); } catch (e) { fail(e); }
+    };
+  }
+
+  function renderSetPassword() {
+    root.innerHTML = `<div class="container py-5" style="max-width:420px">
+      <div class="card p-4"><h1 class="h4 fw-bold mb-1">Choose your password</h1>
+      <p class="small text-soft">Signed in as ${esc(state.session.user.email)}. Use at least 10 characters.</p>
+      <form id="pwForm"><div class="mb-3"><label class="form-label">New password</label><input class="form-control" type="password" name="pw" minlength="10" required autocomplete="new-password"></div>
+      <div class="mb-3"><label class="form-label">Repeat it</label><input class="form-control" type="password" name="pw2" minlength="10" required autocomplete="new-password"></div>
+      <button class="btn btn-primary w-100" type="submit">Save password</button></form></div></div>`;
+    document.getElementById("pwForm").onsubmit = async (ev) => {
+      ev.preventDefault(); const f = new FormData(ev.target);
+      if (f.get("pw").length < 10) return toast("Use at least 10 characters", "error");
+      if (f.get("pw") !== f.get("pw2")) return toast("The two passwords don't match", "error");
+      try { await api.setPassword(f.get("pw")); state.passwordSet = true; history.replaceState(null, "", location.pathname); toast("Password saved"); boot(); } catch (e) { fail(e); }
     };
   }
 
@@ -107,23 +148,27 @@
     const r = role();
     root.innerHTML = `<div class="app-shell">
       <aside class="sidebar">
-        <a class="brand-mark mb-3 px-2 side-extra" href="index.html"><span class="dot"><i class="bi bi-mortarboard-fill"></i></span><span>EduFlow AI<small>${esc(state.membership.school_name || "")}</small></span></a>
+        <a class="brand-mark mb-3 px-2 side-extra" href="index.html"><span class="dot"><i class="bi bi-mortarboard-fill"></i></span><span>EduFlow AI<small>${esc(state.membership ? state.membership.school_name : "Platform setup")}</small></span></a>
+        ${state.memberships.length > 1 ? `<select class="form-select form-select-sm mb-3 side-extra" id="schoolSwitch" aria-label="Switch school">${state.memberships.map((m) => `<option value="${m.school_id}" ${state.membership && m.school_id === state.membership.school_id ? "selected" : ""}>${esc(m.school_name)}</option>`).join("")}</select>` : ""}
         <nav class="nav flex-column gap-1" id="nav">${NAV.filter(allowed).map((n) => `
           <a href="#${n.id}" class="nav-link" data-view="${n.id}"><span><i class="bi bi-${n.icon} me-2"></i>${n.text}</span><span class="count d-none" data-count="${n.countKey || ""}"></span></a>`).join("")}
         </nav>
         <div class="side-extra mt-4 px-2 small text-soft">
           <div class="fw-semibold text-body">${esc(state.session.user.name || state.session.user.email)}</div>
-          <div>${label(r)}</div>
+          <div>${isOperator() ? "Platform operator" : label(r)}</div>
           <button class="btn btn-sm btn-link px-0" id="signOut">Sign out</button>
         </div>
       </aside>
       <main class="main" id="main"></main></div>`;
-    document.getElementById("signOut").onclick = async () => { await api.signOut(); boot(); };
+    document.getElementById("signOut").onclick = async () => { await api.signOut(); remember(SCHOOL_KEY, null); boot(); };
+    const sw = document.getElementById("schoolSwitch");
+    if (sw) sw.onchange = () => { remember(SCHOOL_KEY, sw.value); reopen("dashboard"); };
     window.onhashchange = () => go(location.hash.slice(1) || "dashboard");
-    go(location.hash.slice(1) || "dashboard");
+    go(location.hash.slice(1) || (state.membership ? "dashboard" : "platform"));
   }
 
   async function refreshCounts() {
+    if (!state.membership) return;
     try {
       const d = await api.dashboard();
       const set = (k, v) => { const el = document.querySelector(`[data-count="${k}"]`); if (el) { el.textContent = v; el.classList.toggle("d-none", !v); } };
@@ -134,7 +179,7 @@
 
   function go(view) {
     const n = NAV.find((x) => x.id === view);
-    if (!n || !allowed(n)) view = "dashboard";
+    if (!n || !allowed(n)) view = state.membership ? "dashboard" : "platform";
     state.view = view;
     document.querySelectorAll("#nav .nav-link").forEach((a) => a.classList.toggle("active", a.dataset.view === view));
     const main = document.getElementById("main");
@@ -505,6 +550,94 @@
         enquiry_retention_months: +f.get("enquiry_retention_months"), default_language: f.get("default_language") };
       try { await api.updateSchoolSettings(s.id, patch); toast("Settings saved"); } catch (e) { fail(e); }
     };
+  };
+
+  // ------------------------------------------------------- platform setup
+  const slugify = (t) => String(t || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  const siteBase = location.origin + location.pathname.replace(/[^/]*$/, "");
+  VIEWS.platform = async (main) => {
+    const schools = await api.listAllSchools();
+    main.innerHTML = header("Platform setup", "Add schools and open any of them as their administrator. Only you, as the platform operator, see this page.") +
+      `<div class="row g-4"><div class="col-lg-7">
+        <div class="table-card">${schools.length ? `<table class="table align-middle"><thead><tr><th>School</th><th>Parent links</th><th>Status</th><th></th></tr></thead><tbody>
+          ${schools.map((sc) => `<tr><td><div class="fw-semibold">${esc(sc.name)}</div><div class="small text-soft">${label(sc.school_type)}${sc.county ? " · " + esc(sc.county) : ""}</div></td>
+            <td class="small"><a href="${siteBase}enquiry.html?school=${encodeURIComponent(sc.slug)}" target="_blank" rel="noopener">Enquiry form</a> · <a href="${siteBase}apply.html?school=${encodeURIComponent(sc.slug)}" target="_blank" rel="noopener">Application form</a></td>
+            <td>${sc.status === "active" ? '<span class="badge-status st-success">Active</span>' : badge(sc.status)}</td>
+            <td class="text-end"><button class="btn btn-sm btn-outline-primary" data-open="${sc.id}">Open</button></td></tr>`).join("")}</tbody></table>`
+          : empty("buildings", "No schools yet. Add your first pilot school on the right.")}</div>
+        <div class="card p-3 mt-3 small"><div class="fw-semibold mb-1">Adding staff to a school</div>
+          <ol class="mb-0 ps-3"><li>Invite them in Supabase: <a href="https://supabase.com/dashboard/project/ncgszlwawiagennffkjw/auth/users" target="_blank" rel="noopener">Authentication › Users › Invite user</a>. They get an email and choose their own password.</li>
+          <li>Open the school here, go to <b>Staff &amp; roles</b>, and add them by email with their role.</li></ol></div>
+      </div>
+      <div class="col-lg-5"><div class="card p-4"><h2 class="h6 fw-bold">Add a school</h2>
+        <form id="schoolForm" novalidate>
+          <div class="mb-2"><label class="form-label small">School name *</label><input class="form-control" name="name" required maxlength="120"></div>
+          <div class="mb-2"><label class="form-label small">Link name *</label><input class="form-control" name="slug" required pattern="[a-z0-9-]{3,60}">
+            <div class="form-text">Used in the parent links, e.g. <code>sunrise-academy</code></div></div>
+          <div class="row g-2 mb-2"><div class="col-6"><label class="form-label small">Type</label><select class="form-select" name="school_type">
+            ${["primary","daycare","kindergarten","secondary","tuition","training","academy"].map((t) => `<option value="${t}">${label(t)}</option>`).join("")}</select></div>
+            <div class="col-6"><label class="form-label small">County</label><input class="form-control" name="county"></div></div>
+          <div class="row g-2 mb-3"><div class="col-6"><label class="form-label small">Office phone</label><input class="form-control" name="phone"></div>
+            <div class="col-6"><label class="form-label small">Office email</label><input class="form-control" type="email" name="email"></div></div>
+          <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="trialSchool" name="trial">
+            <label class="form-check-label small" for="trialSchool">Trial school: send every message to my inbox instead of parents</label></div>
+          <button class="btn btn-primary w-100" type="submit">Add school</button></form></div></div></div>`;
+    const form = document.getElementById("schoolForm");
+    form.name.oninput = () => { if (!form.slug.dataset.touched) form.slug.value = slugify(form.name.value); };
+    form.slug.oninput = () => { form.slug.dataset.touched = "1"; };
+    form.onsubmit = async (ev) => {
+      ev.preventDefault();
+      const name = form.name.value.trim(), slug = slugify(form.slug.value);
+      if (name.length < 2) return toast("Enter the school's name", "error");
+      if (slug.length < 3) return toast("The link name needs at least 3 letters or numbers", "error");
+      const settings = { required_documents: ["birth_certificate", "passport_photo", "previous_report"], reminder_interval_days: 7, reminder_grace_days: 3,
+        enquiry_retention_months: 12, briefing_hour: 7, timezone: "Africa/Nairobi", default_language: "en",
+        briefing_recipients: [state.session.user.email] };
+      if (form.trial.checked) settings.demo_redirect_email = state.session.user.email;
+      try {
+        const sc = await api.createSchool({ name, slug, school_type: form.school_type.value, county: form.county.value.trim() || null,
+          phone: form.phone.value.trim() || null, email: form.email.value.trim() || null, status: "active", settings });
+        remember(SCHOOL_KEY, sc.id); toast(`${sc.name} added`); reopen("staff");
+      } catch (e) { fail(e.code === "23505" ? Object.assign(e, { userMessage: "That link name is already used by another school." }) : e); }
+    };
+    main.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => { remember(SCHOOL_KEY, b.dataset.open); reopen("dashboard"); });
+  };
+
+  // ---------------------------------------------------------- staff & roles
+  const STAFF_ROLES = ["school_admin", "head_teacher", "admissions_officer", "bursar", "teacher"];
+  VIEWS.staff = async (main) => {
+    const members = await api.listMembers();
+    const me = state.session.user.email;
+    main.innerHTML = header("Staff & roles", "Who can sign in to this school, and what each person can see and do.") +
+      `<div class="row g-4"><div class="col-lg-7"><div class="table-card">${members.length ? `<table class="table align-middle"><thead><tr><th>Person</th><th>Role</th><th></th></tr></thead><tbody>
+        ${members.map((m) => `<tr><td><div class="fw-semibold">${esc(m.full_name || m.email)}</div><div class="small text-soft">${esc(m.email || "")}</div></td>
+          <td>${label(m.role_key)}${m.status !== "active" ? " " + badge(m.status) : ""}</td>
+          <td class="text-end">${m.email && m.email.toLowerCase() === (me || "").toLowerCase() ? "" : `<button class="btn btn-sm btn-light" data-remove="${m.membership_id}" data-name="${esc(m.full_name || m.email)}">Remove</button>`}</td></tr>`).join("")}</tbody></table>`
+        : empty("person-badge", "No staff yet. Add the school administrator first.")}</div></div>
+      <div class="col-lg-5"><div class="card p-4"><h2 class="h6 fw-bold">Add a staff member</h2>
+        <form id="memberForm" novalidate>
+          <div class="mb-2"><label class="form-label small">Email *</label><input class="form-control" type="email" name="email" required></div>
+          <div class="mb-2"><label class="form-label small">Full name</label><input class="form-control" name="name"></div>
+          <div class="mb-3"><label class="form-label small">Role *</label><select class="form-select" name="role">${STAFF_ROLES.map((r) => `<option value="${r}">${label(r)}</option>`).join("")}</select></div>
+          <button class="btn btn-primary w-100" type="submit">Add to ${esc(state.membership.school_name)}</button></form>
+        <div id="memberMsg" class="small mt-3"></div>
+        <p class="small text-soft mt-3 mb-0">Each person needs a login first. ${isOperator() ? `Invite them in <a href="https://supabase.com/dashboard/project/ncgszlwawiagennffkjw/auth/users" target="_blank" rel="noopener">Supabase › Authentication › Users</a>, then add them here.` : "Ask the platform operator to send them an invite, then add them here."}</p>
+      </div></div></div>`;
+    const form = document.getElementById("memberForm"), msg = document.getElementById("memberMsg");
+    form.onsubmit = async (ev) => {
+      ev.preventDefault(); msg.innerHTML = "";
+      const email = form.email.value.trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter a valid email address", "error");
+      try {
+        const r = await api.addMember(email, form.role.value, form.name.value.trim());
+        if (r.status === "not_found") { msg.innerHTML = `<div class="alert alert-warning py-2 mb-0">There's no login for <b>${esc(email)}</b> yet. Send them an invite first, then add them again.</div>`; return; }
+        toast(`${email} added as ${label(form.role.value)}`); go("staff");
+      } catch (e) { fail(e); }
+    };
+    main.querySelectorAll("[data-remove]").forEach((b) => b.onclick = async () => {
+      if (!(await confirmAction(`Remove ${b.dataset.name} from ${state.membership.school_name}? They will no longer be able to see this school.`))) return;
+      try { await api.removeMember(b.dataset.remove); toast("Removed"); go("staff"); } catch (e) { fail(e); }
+    });
   };
 
   boot().catch(fail);
