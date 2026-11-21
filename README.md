@@ -14,22 +14,22 @@ EduFlow AI automates the front office of Kenyan private schools: admissions enqu
 | `supabase/migrations/002_security_rules.sql` | Row Level Security, human-approval rules, audit trail, public RPCs, reminder batch |
 | `supabase/migrations/003_storage.sql` | Private document bucket and upload rules |
 | `supabase/migrations/004_automation.sql` | Automation bridge: database triggers call Make; service-role-only functions Make calls back |
-| `supabase/seed.sql` | **Fictional** demo data: Mwangaza Junior Academy + Baraka Little Stars Daycare |
+| `tests/fixtures/test_seed.sql` | Fictional records used **only** by the automated tests. Never load into a live database |
 | `tests/` | 77 automated tests: 49 security + 28 automation (`run_local.sh`) |
 | `make/scenarios.md` | What is built in Make now, plus the full scenario design |
 | `make/blueprints/` | Exported blueprints of the two live Make scenarios |
 | `prompts/prompt-library.json` | Claude prompts with output schemas, fallbacks and test cases |
 
-## 1. See the demo (no setup)
-Live at **https://yomie-commits.github.io/EduFlowAI/** (GitHub Pages, served from the root of `main`). With `SUPABASE_URL` empty, the app runs in **demo mode** with fictional data and a banner that says so. Pick a role on the sign-in page to see what that person sees.
+## 1. The live site
+**https://yomie-commits.github.io/EduFlowAI/** (GitHub Pages, served from the root of `main`). The staff app (`app.html`) signs in against the live Supabase database. Parents use each school's own links: `enquiry.html?school=<slug>` and `apply.html?school=<slug>`.
 
 ## 2. Live backend
-Already done for the demo: Supabase project **eduflow-demo** (`https://ncgszlwawiagennffkjw.supabase.co`, EU Frankfurt) has migrations 001–004 and the fictional seed. `js/config.eduflow-demo.js` holds its public URL and publishable key; copy it over `config.js` to switch the website to live data. To set up another project, follow these steps:
+Supabase project `eduflow-demo` (`https://ncgszlwawiagennffkjw.supabase.co`, EU Frankfurt) has migrations 001–004 and **no school data yet**. `js/config.js` holds its public URL and publishable key. To set up another project, follow these steps:
 
 ### Setting up a new project (about 30 minutes)
 1. Create a Supabase project (region: **EU Frankfurt**; there's no Kenyan region, so mention the transfer in the privacy notice).
 2. SQL Editor → run `001_schema.sql`, `002_security_rules.sql`, `003_storage.sql` and `004_automation.sql` in that order. Then save the Make webhook URL: `insert into app.config (key, value) values ('make_webhook_url', '<your Make webhook URL>');`
-3. Authentication → add the demo users listed at the top of `seed.sql` (or your real staff), then run `seed.sql` (demo only, **never** for a real school).
+3. Authentication → invite your real staff by email (they set their own passwords).
 4. Settings → API → copy the **Project URL** and **anon public** key into `js/config.js`. (Never copy the service_role key into the website.)
 5. Authentication → URL configuration → add your site URL (for example `https://yomie-commits.github.io/EduFlowAI/`).
 6. Commit and push to `main`. GitHub Pages (Settings → Pages → Deploy from branch `main`, folder `/ (root)`) republishes the site on every push.

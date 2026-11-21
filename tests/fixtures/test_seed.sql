@@ -1,5 +1,5 @@
 -- =====================================================================
--- EduFlow AI  |  SYNTHETIC DEMONSTRATION DATA — NOT REAL PEOPLE
+-- EduFlow AI  |  TEST FIXTURES ONLY (fictional) — used by tests/run_local.sh. Never load into a live database.
 -- Two fictional schools so tenant isolation can be shown in demos:
 --   Mwangaza Junior Academy (CBC primary, Nairobi)  slug: mwangaza-junior
 --   Baraka Little Stars Daycare (Kiambu)            slug: baraka-daycare

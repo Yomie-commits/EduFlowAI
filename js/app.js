@@ -1,4 +1,4 @@
-// EduFlow AI — staff web app (role-aware). Works against DemoAdapter or SupabaseAdapter.
+// EduFlow AI — staff web app (role-aware), backed by Supabase.
 (function () {
   const api = window.EduFlowData;
   const { can, DECISIONS } = window.EduFlowRoles;
@@ -71,12 +71,13 @@
 
   // ---------------------------------------------------------------- shells
   async function boot() {
-    if (api.mode === "demo") document.getElementById("demoBanner").classList.remove("d-none");
+    if (!api) { root.innerHTML = `<div class="container py-5" style="max-width:520px"><div class="empty"><div class="icon"><i class="bi bi-plug"></i></div><div>EduFlow AI is not connected to its database. Check js/config.js.</div></div></div>`; return; }
     state.session = await api.getSession();
     if (!state.session) return renderLogin();
     const ms = await api.myMemberships();
     if (!ms.length) return renderNoAccess();
     state.membership = ms[0];
+    state.school_slug = ms[0].school_slug;
     if (api.setContext) api.setContext({ school_id: state.membership.school_id, role: state.membership.role_key });
     state.memberships = ms;
     renderShell();
@@ -84,24 +85,6 @@
 
   function renderLogin() {
     const brand = `<a class="brand-mark mb-4" href="index.html"><span class="dot"><i class="bi bi-mortarboard-fill"></i></span><span>EduFlow AI<small>by Naomi Mwangi</small></span></a>`;
-    if (api.mode === "demo") {
-      const roles = [
-        ["school_admin", "School Administrator", "Wanjiru Kamau", "Everything: admissions, approvals, settings"],
-        ["admissions_officer", "Admissions Officer", "James Otieno", "Enquiries, applications, parent replies"],
-        ["bursar", "Bursar", "Mary Achieng", "Balances, payments, fee reminders"],
-        ["head_teacher", "Head Teacher", "Peter Kamau", "Overview, decisions, approvals"],
-        ["teacher", "Teacher (Grade 4)", "Tr. Chebet Njoroge", "Own class and tasks only"]
-      ];
-      root.innerHTML = `<div class="container py-5" style="max-width:880px">${brand}
-        <h1 class="page-title mb-1">Try EduFlow AI</h1>
-        <p class="text-soft mb-4">Pick a role to see what that person sees. Each role only gets the screens and data its job needs.</p>
-        <div class="row g-3">${roles.map((r) => `
-          <div class="col-md-6"><button class="feature-card w-100 text-start" data-role="${r[0]}">
-            <div class="fw-bold">${r[1]}</div><div class="small text-soft">${r[2]}</div><div class="small mt-2">${r[3]}</div></button></div>`).join("")}
-        </div></div>`;
-      root.querySelectorAll("[data-role]").forEach((b) => b.onclick = async () => { await api.signIn(b.dataset.role); boot(); });
-      return;
-    }
     root.innerHTML = `<div class="container py-5" style="max-width:420px">${brand}
       <div class="card p-4"><h1 class="h4 fw-bold mb-3">Sign in</h1>
       <form id="loginForm"><div class="mb-3"><label class="form-label">Email</label><input class="form-control" type="email" name="email" required autocomplete="username"></div>
@@ -131,7 +114,7 @@
         <div class="side-extra mt-4 px-2 small text-soft">
           <div class="fw-semibold text-body">${esc(state.session.user.name || state.session.user.email)}</div>
           <div>${label(r)}</div>
-          <button class="btn btn-sm btn-link px-0" id="signOut">${api.mode === "demo" ? "Switch role" : "Sign out"}</button>
+          <button class="btn btn-sm btn-link px-0" id="signOut">Sign out</button>
         </div>
       </aside>
       <main class="main" id="main"></main></div>`;
@@ -235,7 +218,7 @@
         <td>${label(e.category)}</td><td>${badge(e.urgency)}</td><td>${badge(e.status)}</td>
         <td class="small ${overdue ? "text-danger fw-semibold" : "text-soft"}">${e.follow_up_due_at && e.status !== "converted" && e.status !== "closed" ? (overdue ? "Overdue" : "Due " + when(e.follow_up_due_at).replace(" ago", "")) : "—"}</td>
         <td class="small text-soft text-nowrap">${when(e.created_at)}</td></tr>`; }).join("")}</tbody></table></div>` : empty("inbox", "No enquiries in this view.")}</div>
-      <p class="small text-soft mt-3">Public form link for parents: <code>enquiry.html?school=${esc(state.school_slug || "mwangaza-junior")}</code></p>`;
+      <p class="small text-soft mt-3">Public form link for parents: <code>enquiry.html?school=${esc(state.school_slug || "your-school")}</code></p>`;
     main.querySelectorAll("[data-f]").forEach((b) => b.onclick = () => { state.cache.enqFilter = b.dataset.f; go("enquiries"); });
     main.querySelectorAll("[data-enq]").forEach((tr) => tr.onclick = () => openEnquiry(tr.dataset.enq));
   };
@@ -292,7 +275,7 @@
         <td>${esc(a.grade_applied)}</td><td class="small">${esc(a.parent_name)}</td>
         <td class="small">${(a.missing_documents || []).length ? `<span class="text-danger">${a.missing_documents.length} missing</span>` : '<span class="text-success">Complete</span>'}</td>
         <td>${badge(a.status)}</td><td class="small text-soft">${when(a.created_at)}</td></tr>`).join("")}</tbody></table></div>` : empty("file-earmark", "No applications yet.")}</div>
-      <p class="small text-soft mt-3">Public application link: <code>apply.html?school=mwangaza-junior</code></p>`;
+      <p class="small text-soft mt-3">Public application link: <code>apply.html?school=${esc(state.school_slug || "your-school")}</code></p>`;
     main.querySelectorAll("[data-app]").forEach((tr) => tr.onclick = () => openApplication(tr.dataset.app));
   };
 
@@ -325,7 +308,7 @@
       try { await api.setApplicationStatus(id, s, document.getElementById("appNotes").value); modal.hide(); toast("Application updated"); go("applications"); } catch (e) { fail(e); }
     };
     document.querySelectorAll("[data-verify]").forEach((b) => b.onclick = async () => { try { await api.verifyDocument(b.dataset.verify, b.dataset.s); toast("Document " + b.dataset.s); openApplication(id); } catch (e) { fail(e); } });
-    document.querySelectorAll("[data-view-doc]").forEach((b) => b.onclick = async () => { try { const u = await api.documentUrl(b.dataset.viewDoc); if (u) window.open(u, "_blank", "noopener"); else toast("Demo documents have no file attached", "info"); } catch (e) { fail(e); } });
+    document.querySelectorAll("[data-view-doc]").forEach((b) => b.onclick = async () => { try { const u = await api.documentUrl(b.dataset.viewDoc); if (u) window.open(u, "_blank", "noopener"); else toast("This document has no file attached", "info"); } catch (e) { fail(e); } });
     const ask = document.getElementById("askDocs");
     if (ask) ask.onclick = async () => {
       const body = `Dear ${a.parent_name.split(" ")[0]}, thank you for applying to ${state.membership.school_name} for ${a.learner_first_name}. To complete the application we still need: ${a.missing_documents.map((x) => label(x).toLowerCase()).join(", ")}. You can upload them using the link in your confirmation message. Kind regards, Admissions Office.`;
@@ -496,7 +479,7 @@
   // --------------------------------------------------------------- settings
   VIEWS["school-settings"] = async (main) => {
     const s = await api.getSchool(); state.school = s; const st = s.settings || {};
-    const editable = can(role(), "admin") || api.mode === "demo" && role() === "school_admin";
+    const editable = can(role(), "admin");
     main.innerHTML = header("School settings", "The rules your automations follow. Changing them here changes behaviour; no code needed.") +
       `<div class="card p-4" style="max-width:760px"><form id="setForm">
         <div class="row g-3">

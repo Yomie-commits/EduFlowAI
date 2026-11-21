@@ -14,7 +14,7 @@ Your Make account is on the **Free plan (2 active scenarios, 1,000 operations a 
 - **AI:** Make's built-in AI provider (model "medium") for now, so no Claude API key is needed yet. The prompt is `enquiry_classifier` v1.0. Invalid output → the enquiry goes to a person (fallback).
 - **Email:** Gmail connection "Naomi Gmail (send)", mwanginaomi42@gmail.com.
 - **SMS:** not connected. SMS messages are marked `failed` with "SMS provider not connected yet", never faked.
-- **Demo safety:** the demo school has `settings.demo_redirect_email`, so **every** outgoing message (email or SMS) goes to the operator inbox with a `[DEMO … to <original recipient>]` subject. Remove that setting only for a real school.
+- **Test safety (optional):** a school whose `settings.demo_redirect_email` is set has **every** outgoing message (email or SMS) redirected to that inbox with a `[DEMO … to <original recipient>]` subject. Use it for a trial school; leave it unset for a real school.
 - **Not yet built:** S2 (application letters), S5 (inbound email triage), S7 (retention), S8 (AI draft endpoint), S9 (health sweep). They need a paid Make plan (more active scenarios) or more routes in the live-events scenario.
 
 ---
@@ -144,5 +144,5 @@ Hourly: re-queue `communication_logs` stuck in `queued` > 15 min or `failed` wit
 1. Create the 4 keychain entries and the Gmail connection (use the school's or Naomi Mwangi's Workspace account).
 2. Build **LOG** first, then S0, S1, S3, S6, S8 (MVP). S2, S5, S7, S9 next; S4 in Phase 5.
 3. In Supabase → Database → Webhooks create hooks for: `admissions_enquiries` INSERT → S1; `applications` INSERT/UPDATE → S2; `communication_logs` INSERT/UPDATE → S0; `payment_reminders` UPDATE → S0b.
-4. Run each scenario's test list against the **demo school** before connecting a real school.
+4. Run each scenario's test list against a trial school (with `demo_redirect_email` set) before connecting a real school.
 5. Turn scenarios ON one at a time and watch `automation_logs` on the dashboard for 48 hours.

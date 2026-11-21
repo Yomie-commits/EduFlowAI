@@ -8,7 +8,6 @@
   <link href="css/eduflow.css" rel="stylesheet">
 </head>
 <body>
-  <div id="demoBanner" class="demo-banner d-none">Demonstration form. Nothing you upload here leaves your browser.</div>
   <main class="container py-4 py-md-5 public-form">
     <p class="section-kicker mb-1">Admission application · step <span id="stepNo">1</span> of 2</p>
     <h1 class="h3 fw-bold mb-1" id="schoolName">Apply</h1>
@@ -56,10 +55,15 @@
     (async function () {
       const api = window.EduFlowData;
       const qs = new URLSearchParams(location.search);
-      const slug = qs.get("school") || EDUFLOW_CONFIG.DEFAULT_SCHOOL_SLUG;
+      const slug = (qs.get("school") || EDUFLOW_CONFIG.DEFAULT_SCHOOL_SLUG || "").trim();
       if (qs.get("ref")) document.getElementById("refIn").value = qs.get("ref");
-      if (api.mode === "demo") document.getElementById("demoBanner").classList.remove("d-none");
-      try { const s = await api.publicSchool(slug); if (s && s.name) { document.getElementById("schoolName").textContent = "Apply to " + s.name; document.title = s.name + " · Application"; } } catch (e) {}
+      const blockForm = (msg) => { const f = document.getElementById("f"); f.innerHTML = `<div class="alert alert-warning mb-0">${msg}</div>`; };
+      if (!api) { blockForm("This form is not connected yet. Please contact the school directly."); return; }
+      if (!slug) { blockForm("This link is missing the school's name. Please use the form link your school shared with you."); return; }
+      let school = null;
+      try { school = await api.publicSchool(slug); } catch (e) {}
+      if (!school || !school.name) { blockForm("We couldn't find this school. Please check the link your school shared with you."); return; }
+      document.getElementById("schoolName").textContent = "Apply to " + school.name; document.title = school.name + " · Application";
       const label = (s) => s.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
       const form = document.getElementById("f"), err = document.getElementById("err"), btn = document.getElementById("btn");
       let app = null;
